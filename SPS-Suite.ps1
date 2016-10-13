@@ -74,7 +74,7 @@ Function SPS-CreateSubsite {
         $wci.Url = $SubsiteUrl
         $wci.Language = "1033"
 
-        $SubWeb = $context.Web.Webs.Add($wci)
+        $SubWeb = $context.Web.Webs.Add($wci) 
 
         $noproblems = $true
 
