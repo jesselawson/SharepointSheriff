@@ -1,16 +1,48 @@
 
-<# 
+$AdminUsername = "lawsonje@butte.edu"
 
+<#
+    SPS-GetAdminPassword
+
+    PURPOSE. 
+        Provide a simple way to programatically embed different password collection styles based on the administrator using the script. Instead of having to 
+        have a bunch of `$Password = read-host...` entries eveywhere OR having your plain-text password written multiple times in the same script, we can use this
+        callback function to return our password capture method--either as a read-host or in plaintext to skip having to enter it in before every command.
+
+    USAGE.
+        $Password = SPS-GetAdminPassword
+
+    NOTES.
+        If you prefer to enter your admin password before every command, use the `read-host` line in the function. 
+        If, however, you would prefer to just have your plain-text password baked into the scripts (as a lot of people find this more convenient), then simply 
+            update this function to make it return your plain text password.
+
+#>
+Function SPS-GetAdminPassword {
+    begin{
+        
+    }
+    process {
+        # Read in the password so we don't have to bake in the credentials. If you want, you can comment out the read-host line below and instead use the 
+        # explicit password declaration if you're tired of typing in your password all the time.
+        $Password = read-host -Prompt "Password for $AdminUsername" -AsSecureString
+        #$Password = "PlainTextPassword"
+    }
+    end {
+        return $Password
+    }
+}
+
+<# 
     SPS-CreateSubsite
 
-Purpose.
-    Create a sigle subsite
+    PURPOSE.
+    Create a single subsite. 
 
-Usage:
-    See Example_SPS-CreateSubsite.ps1
-
-
-
+    USAGE.
+        SPS-CreateSubsite -SiteUrl "https://<<your spo instance>>.sharepoint.com" `
+        -SubsiteUrl "<<the-slug-of-the-subsite" -Title "The Subsite's Title" `
+        -Template "Team" -SamePermissions $true
 #>
 Function SPS-CreateSubsite {
     Param(
@@ -35,7 +67,7 @@ Function SPS-CreateSubsite {
     )
     begin{
         # Get user authentication
-        $Username = "lawsonje@butte.edu"
+        $Username = $AdminUsername
 
         $tmplt = ""
 
@@ -56,10 +88,7 @@ Function SPS-CreateSubsite {
         # Create a new sharepoint context
         $context = New-Object Microsoft.SharePoint.Client.ClientContext($SiteUrl)
         
-        # Read in the password so we don't have to bake in the credentials. If you want, you can comment out the read-host line below and instead use the 
-        # explicit password declaration if you're tired of typing in your password all the time.
-        $Password = read-host -Prompt "Password" -AsSecureString
-        #$Password = "myPassword"
+        $Password = SPS-GetAdminPassword
         
         $context.Credentials = New-Object Microsoft.SharePoint.Client.SharePointOnlineCredentials($Username, $Password)
    
@@ -91,7 +120,8 @@ Function SPS-CreateSubsite {
         }
         finally {
             if($SamePermissions -eq $false){
-                try{
+               <# This should be un-needed, as we don't connect to <<spoinstance>>-admin.sharepoint.com. 
+               try{
                     #Check to see if this is a root site collection that was passed
                     Get-SPOSite -Identity $SiteUrl
                 }
@@ -99,8 +129,10 @@ Function SPS-CreateSubsite {
                 #If here we are working with a subsite
                 Write-Host "Oops, it looks like we're dealing with a subsite, I can handle that" -ForegroundColor Yellow 
                 #reconstruct the SiteUrl parameter
-                $SiteUrl = "https://butteedu.sharepoint.com/"+$SiteUrl.Split("/")[3]+"/"+$SiteUrl.Split("/")[4]
-                }
+                $sitefqdn = $SiteUrl.split("/")[2]
+                $parentsite = "https://"+$sitefqdn+"/"
+                $SiteUrl = $parentsite+$SiteUrl.Split("/")[3]+"/"+$SiteUrl.Split("/")[4]
+                }#>
                 finally{
                     $ownerGroup = "$Title Owners"
                     $memberGroup = "$Title Members"
@@ -131,7 +163,9 @@ Function SPS-CreateSubsite {
 
 
 # Generate subsites in SharePoint Online by using a CSV file
-Function SPS-ImportSubsitesFromCSV {
+# This is a very opinionated function that makes a lot of assumptions for you:
+#   
+Function SPS-CreateSubsitesFromCSV {
     Param(
         [Parameter(Mandatory=$true,HelpMessage="The URL of the site collection",Position=0)][ValidateNotNull()]
         [string]$SiteUrl,
@@ -141,15 +175,71 @@ Function SPS-ImportSubsitesFromCSV {
 
     begin {
 
-
+        # Get the username and password   
+        $Username = $AdminUsername
+        $Password = SPS-GetAdminPassword
+    
+        # Check if csv file exists
+        write-host "Checking CSV file..."
+        $testpath = Test-Path -Path $PathToCSV    
     }
 
     process {
+        if($testpath -eq $true) {
+            # Import the CSV file
+            write-host "Importing CSV file..."
+            $subsites = Import-Csv $PathToCSV 
 
+            write-host "Generating SPO context and credential..."
+            $context = New-Object Microsoft.SharePoint.Client.ClientContext($SiteUrl)
+            $context.Credentials = New-Object Microsoft.SharePoint.Client.SharePointOnlineCredentials($Username, $Password)
+            
+            write-host "Beginning bulk creation..." 
+            $numgood = 0
+            $numbad = 0
+            $success = $true
+            foreach($subsite in $subsites) {
+                $title = $subsite.Title
+                $url = $subsite.Url
+                write-host "Creating $title ($SiteUrl/$url)..." -NoNewline
+                #Create SubSite
+                $wci = New-Object Microsoft.SharePoint.Client.WebCreationInformation
+                $wci.WebTemplate = "STS#0" # Note that I'm using a default Team site template here. Use whichever you want.
+                $wci.UseSamePermissionsAsParentSite = $true
+                $wci.Title = $subsite.Title
+                $wci.Url = $subsite.Url
+                $wci.Language = "1033"
 
+                $SubWeb = $context.Web.Webs.Add($wci) 
+                try {
+                    $context.ExecuteQuery()
+                }
+                catch {
+                    $success=$false
+                    write-host "[ FAILED ]" -ForegroundColor Yellow
+                    write-host ">> $_.Exception.Message" -ForegroundColor Red
+                    $numbad += 1
+                } 
+                
+                # Only write [OK] if success wasn't switched to false 
+                if($success -eq $true) {
+                    write-host "[ OK ]" -ForegroundColor Green
+                    $numgood += 1
+                }
+
+                # Reset our success bool 
+                $success = $true
+            } # End foreach 
+
+        } else {
+            Write-Host "Oops! That CSV file doesn't seem to exist!"
+        }
     }
 
     end {
-
+        write-host "Finished with SPS-CreateSubsitesFromCSV. A total of $numgood subsites were created successfully."
+        if($numbad -gt 0){
+            write-host "Please note: $numbad subsites failed to be created!"
+        }
     }
 } # End of function
