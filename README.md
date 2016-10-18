@@ -6,6 +6,7 @@ A set of powershell tools to automate common and bulk tasks for those of us who 
 **Quicklinks:**
 * [Create a single subsite](#create-a-new-subsite)
 * [Create multiple subsites from a csv](#create-multiple-subsites-from-a-csv-file)
+* [Get all subsites and export them to an HTML list](#get-an-html-formatted-list-of-all-subsites)
 
 # Features
 A set of cmdlets to be used in the Sharepoint Online Management Shell that will help you administer your institution's Sharepoint Online instance from the command line. These cmdlets have been designed with automation, efficiency, and hurry-up-and-go (HUG) administration in mind. 
