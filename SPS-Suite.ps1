@@ -169,7 +169,7 @@ Function SPS-CreateSubsitesFromCSV {
     Param(
         [Parameter(Mandatory=$true,HelpMessage="The URL of the site collection",Position=0)][ValidateNotNull()]
         [string]$SiteUrl,
-        [Parameter(Mandatory=$true,HelpMessage="The CSV containing the subsites we want to create",Position=0)][ValidateNotNull()]
+        [Parameter(Mandatory=$true,HelpMessage="The CSV containing the subsites we want to create",Position=1)][ValidateNotNull()]
         [string]$PathToCSV
     )
 
@@ -242,4 +242,81 @@ Function SPS-CreateSubsitesFromCSV {
             write-host "Please note: $numbad subsites failed to be created!"
         }
     }
+} # End of function
+
+<#
+    SPS-GetTabledSubsites.ps1
+
+    PURPOSE.
+        Given a teamsite, output a clean HTML table with the name and links to all that teamsite's subsites.
+
+    USAGE.
+        SPS-GetTabledSubsites --ParentSite "https://yourcollege.sharepoint.com/parentSite" --OutFile "parentSiteSubsites.html"
+
+#>
+  
+Function SPS-GetTabledSubsites {
+    Param(
+        [Parameter(Mandatory=$true,HelpMessage="The URL of the site collection",Position=0)][ValidateNotNull()]
+        [string]$SiteUrl,
+        [Parameter(Mandatory=$true,HelpMessage="The name of the HTML file you wish to create",Position=1)][ValidateNotNull()]
+        [string]$OutFile
+    )
+
+    begin {
+
+        # Get the username and password   
+        $Username = $AdminUsername
+        $Password = SPS-GetAdminPassword
+
+    }
+
+    process {
+
+        write-host "Generating SPO context and credential..."
+        $context = New-Object Microsoft.SharePoint.Client.ClientContext($SiteUrl)
+        $context.Credentials = New-Object Microsoft.SharePoint.Client.SharePointOnlineCredentials($Username, $Password)
+        
+        write-host "Grabbing all the subsites for $SiteUrl... "
+        
+        $success = $true
+        try {
+            $context.Load($context.Web)
+            $context.Load($context.Web.Webs)
+            $context.ExecuteQuery()
+        } catch {
+            $success=$false
+            write-host "[ FAILED ]" -ForegroundColor Yellow
+            write-host ">> $_.Exception.Message" -ForegroundColor Red
+        }
+
+        # Only write [OK] if success wasn't switched to false 
+        if($success -eq $true) {
+            write-host "[ OK ]" -ForegroundColor Green
+        }
+        
+        $outputhtml = ""
+
+        write-host "Looping through subsites... "
+
+        # Loop through the results and add the elements we want to a new PS Object
+        for($i=0;$i -lt $context.Web.Webs.Count ;$i++) {
+
+            $title = $context.Web.Webs[$i].Title
+            $url = $context.Web.Webs[$i].Url
+
+            write-host "Adding $title... " -NoNewline
+
+            # Add this teamsite's information to the output html
+            $outputhtml += "<p><a href='$url'>$title</a></p>"
+            
+            write-host "[ OK ]" -ForegroundColor Green
+        }
+
+        # Export to html file 
+        $outputhtml > $OutFile
+
+        write-host "All set!" 
+
+    } # End of process{}
 } # End of function

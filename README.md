@@ -3,8 +3,11 @@
 # Sharepoint Sheriff
 A set of powershell tools to automate common and bulk tasks for those of us who have had Sharepoint Online administration dumped into our laps.
 
-# Features
+**Quicklinks:**
+* [Create a single subsite](#create-a-new-subsite)
+* [Create multiple subsites from a csv](#create-multiple-subsites-from-a-csv-file)
 
+# Features
 A set of cmdlets to be used in the Sharepoint Online Management Shell that will help you administer your institution's Sharepoint Online instance from the command line. These cmdlets have been designed with automation, efficiency, and hurry-up-and-go (HUG) administration in mind. 
 
 # Installation 
@@ -104,6 +107,19 @@ With that CSV file created, simply plug it into `SPS-CreateSubsitesFromCSV` like
 SPS-CreateSubsitesFromCSV -SiteUrl "https://yoursharepoint.sharepoint.com/departments" -PathToCSV "C:\Users\Roosevelt\Documents\SharepointMigration\department-subsites.csv"
 ```
 
+# Get an HTML-formatted list of all subsites 
+
+Let's say you have a teamsite called `TunaSandwichClub`, and each state in the United States has it's own Tuna Sandwich Club Statewide Conference Center subsite. 
+
+Let's also say that your boss wants to have a page somewhere in Sharepoint that lists all the subsites of the TunaSandwichClub site. Are you going to make that list by hand? Hell no!
+
+Simply use `SPS-GetTabledSubsites.ps1` like so:
+
+```powershell
+SPS-GetTabledSubsites.ps1 -SiteUrl "https://mysharepointsite.sharepoint.com/TunaSandwichClub" -OutFile "tunaclub-subsites.html"
+```
+
+When you're done, check out the output file for some copy+pastable HTML code that you can slap right into a Sharepoint page. Yeehaw! 
 
 
 [1]: https://www.microsoft.com/en-us/download/details.aspx?id=35588
